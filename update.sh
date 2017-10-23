@@ -36,8 +36,8 @@ fi
 
 TOP=$(pwd)
 REL_TOP="../../.."
-COMMON_DIR="$REL_TOP/common"
-COMPONENT_DIR="$REL_TOP/modules"
+COMMON_LINK="$REL_TOP/common"
+MODULES_LINK="$REL_TOP/modules"
 
 if [ ! -d modules ]; then
     echo -n "I'm now ready to create your initial directory structure.  Press ENTER to begin: "
@@ -59,8 +59,8 @@ for ENV in $ENVIRONMENTS; do
         mkdir -p "$TOP/environment/$ENV/$MOD"
         touch "$TOP/environment/$ENV/$ENV.tfvars"
 
-        if [ ! -f "$TOP/environment/$ENV/provider.tf" ]; then
-            cat <<EOS > "$TOP/environment/$ENV/provider.tf"
+        if [ ! -f "$TOP/environment/$ENV/$MOD/provider.tf" ]; then
+            cat <<EOS > "$TOP/environment/$ENV/$MOD/provider.tf"
 # Setup AWS provider
 provider "aws" {
   profile = "\${var.aws_profile}"
@@ -72,26 +72,32 @@ EOS
         pushd "$TOP/environment/$ENV/$MOD" > /dev/null
         [ "$1" == "quiet" ] || echo "Directory: environment/$ENV/$MOD"
 
+        NEW=no
         find . -name '*.tf' | while read FILE; do
             if [ ! -L $FILE ]; then
                 echo " "
-                echo "** WARNING: environment/$ENV/$MOD/${FILE:2:255} is only in $ENV environment --- If you want it to be across all environments, move to your common ($COMMON_DIR) directory"
+                echo "** WARNING: environment/$ENV/$MOD/${FILE:2:255} is only in $ENV environment --- If you want it to be across all environments, move to your common ($COMMON_LINK) directory"
                 echo " "
+                NEW=yes
             fi
         done
+        if [ "$NEW" == "no" ]; then
+            rm *.tf -f
+        fi
 
         find $REL_TOP/common/ -maxdepth 1 -type f | while read FILE; do
             rm -f $(basename "$FILE")
             ln -s "$FILE"
         done
 
-        find $REL_TOP/common/$MOD/ -maxdepth 1 -type f | while read FILE; do
+        find $REL_TOP/common/$MOD/ -maxdepth 1 | while read FILE; do
+            if [ "$(basename "$FILE")" == "$MOD" ]; then continue; fi
             rm -f $(basename "$FILE")
             ln -s "$FILE"
         done
 
         ln -sf $REL_TOP/Makefile .
-        ln -sf $COMPONENT_DIR .
+        ln -sf $MODULES_LINK .
         if [ ! -L provider.tf ]; then
             rm -f provider.tf
             ln -s ../provider.tf .
